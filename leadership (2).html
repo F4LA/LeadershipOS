@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leadership Scorecard — Strong Standard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #E8E4DC; --surface: #FFFFFF; --surface-2: #F0F3F7;
+  --navy-900: #080D1A; --navy-600: #17243B;
+  --steel-700: #1A5F8A; --steel-600: #2278AC; --steel-400: #3899CC;
+  --text-primary: #080D1A; --text-body: #2C3A50; --text-muted: #637285; --text-faint: #A0AEBF;
+  --border: #E2E8F0; --border-strong: #C8D4E0;
+  --green: #1A9E5C; --green-bg: #E8F8F0; --green-border: #A3DFC0;
+  --red: #C93A3A; --red-bg: #FDEAEA; --red-border: #F0AAAA;
+  --gold: #1A5F8A; --gold-bg: #E3F2FC; --gold-border: #90C4E0;
+  --sans: 'DM Sans', sans-serif; --mono: 'DM Mono', monospace; --radius: 14px;
+}
+body { background: var(--bg); color: var(--text-body); font-family: var(--sans); font-size: 15px; min-height: 100vh; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+
+#loading-screen { position: fixed; inset: 0; background: var(--navy-900); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; z-index: 1000; }
+#loading-screen.hidden { display: none; }
+#error-screen { position: fixed; inset: 0; background: var(--navy-900); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 1000; padding: 2rem; }
+#error-screen.hidden { display: none; }
+.spinner { width: 36px; height: 36px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--steel-400); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 13px; color: rgba(255,255,255,0.5); font-family: var(--mono); }
+.loading-brand { font-size: 15px; font-weight: 700; color: white; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
+.error-title { font-size: 16px; font-weight: 600; color: var(--red-bg); }
+.error-msg { font-size: 13px; color: rgba(255,255,255,0.5); font-family: var(--mono); text-align: center; max-width: 500px; }
+.retry-btn { background: var(--steel-600); color: white; border: none; border-radius: 8px; padding: 10px 24px; font-size: 14px; cursor: pointer; font-weight: 600; margin-top: 8px; }
+
+header { background: var(--navy-900); padding: 0 2.5rem; height: 64px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+.header-brand { display: flex; align-items: center; gap: 14px; }
+.brand-mark { width: 34px; height: 34px; background: var(--steel-600); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: white; letter-spacing: 0.04em; flex-shrink: 0; }
+.brand-name { font-size: 13px; font-weight: 700; color: #fff; letter-spacing: 0.12em; text-transform: uppercase; }
+.brand-pipe { width: 1px; height: 20px; background: rgba(255,255,255,0.15); }
+.brand-sub { font-size: 13px; color: rgba(255,255,255,0.5); font-weight: 400; }
+.week-nav { display: flex; align-items: center; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; overflow: hidden; }
+.week-nav button { background: none; border: none; color: rgba(255,255,255,0.5); padding: 0 16px; cursor: pointer; font-size: 18px; height: 40px; display: flex; align-items: center; transition: all 0.15s; }
+.week-nav button:hover:not(:disabled) { color: white; background: rgba(255,255,255,0.08); }
+.week-nav button:disabled { opacity: 0.2; cursor: default; }
+.week-nav-center { padding: 0 20px; border-left: 1px solid rgba(255,255,255,0.10); border-right: 1px solid rgba(255,255,255,0.10); height: 40px; display: flex; align-items: center; gap: 10px; }
+.nav-week-id { font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--steel-400); letter-spacing: 0.06em; }
+.nav-date-range { font-size: 13px; color: rgba(255,255,255,0.75); }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.refresh-btn { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 7px; padding: 6px 14px; color: rgba(255,255,255,0.6); font-size: 12px; cursor: pointer; transition: all 0.15s; }
+.refresh-btn:hover { color: white; background: rgba(255,255,255,0.12); }
+.header-meta { font-size: 11px; color: rgba(255,255,255,0.3); font-family: var(--mono); }
+
+main { max-width: 1280px; margin: 0 auto; padding: 2.5rem 2.5rem 4rem; display: flex; flex-direction: column; gap: 2.5rem; }
+.section-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 1.25rem; }
+.section-label { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--steel-600); }
+.section-meta { font-size: 12px; color: var(--text-faint); font-family: var(--mono); }
+
+/* SCORECARD GRID — 5 cards */
+.scorecard-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+@media (max-width: 1100px) { .scorecard-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 700px)  { .scorecard-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.metric-card { background: var(--surface); border: 1.5px solid var(--border); border-left: 5px solid var(--border); border-radius: var(--radius); padding: 1.5rem 1.5rem 1.25rem; position: relative; cursor: pointer; transition: box-shadow 0.2s, border-color 0.2s, transform 0.15s; user-select: none; }
+.metric-card.green { border-left-color: var(--green); border-color: var(--green-border); }
+.metric-card.red   { border-left-color: var(--red);   border-color: var(--red-border); }
+.metric-card.gold  { border-left-color: var(--gold);  border-color: var(--gold-border); }
+.metric-card.neutral { border-left-color: var(--steel-400); }
+.metric-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(8,13,26,0.09); }
+.metric-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 0.75rem; }
+.metric-name { font-size: 11px; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-muted); line-height: 1.3; }
+.badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+.badge-green { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+.badge-red   { background: var(--red-bg);   color: var(--red);   border: 1px solid var(--red-border); }
+.badge-gold  { background: var(--gold-bg);  color: var(--gold);  border: 1px solid var(--gold-border); }
+.badge-neutral { background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border-strong); }
+.metric-value { font-family: var(--mono); font-size: 46px; font-weight: 500; letter-spacing: -0.03em; line-height: 1; margin-bottom: 8px; }
+.metric-card.green .metric-value { color: var(--green); }
+.metric-card.red   .metric-value { color: var(--red); }
+.metric-card.gold  .metric-value { color: var(--gold); }
+.metric-card.neutral .metric-value { color: var(--text-muted); }
+.metric-threshold { font-size: 11px; color: var(--text-faint); font-family: var(--mono); line-height: 1.6; }
+.metric-hint { font-size: 11px; color: var(--steel-400); margin-top: 8px; display: flex; align-items: center; gap: 5px; opacity: 0; transition: opacity 0.2s; font-weight: 500; }
+.metric-card:hover .metric-hint { opacity: 1; }
+
+/* FLOATING PANELS */
+.floating-panel { position: fixed; background: var(--surface); border: 1.5px solid var(--border-strong); border-radius: var(--radius); min-width: 280px; max-width: 340px; z-index: 500; box-shadow: 0 12px 40px rgba(8,13,26,0.14), 0 2px 8px rgba(8,13,26,0.06); display: none; animation: panelIn 0.15s ease; overflow: hidden; }
+@keyframes panelIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.floating-panel.active { display: block; }
+.panel-header { background: var(--navy-900); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+.panel-title { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.7); }
+.panel-close { background: none; border: none; color: rgba(255,255,255,0.35); cursor: pointer; font-size: 14px; padding: 0; line-height: 1; transition: color 0.15s; }
+.panel-close:hover { color: rgba(255,255,255,0.8); }
+.panel-body { padding: 14px 16px; }
+.lead-list { display: flex; flex-direction: column; gap: 5px; max-height: 220px; overflow-y: auto; }
+.lead-list::-webkit-scrollbar { width: 4px; }
+.lead-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.lead-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; border-radius: 7px; background: var(--surface-2); }
+.lead-name { font-size: 13px; color: var(--text-body); font-weight: 500; }
+.lead-tag { font-size: 10px; padding: 2px 8px; border-radius: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.tag-emery   { background: #E3F2FC; color: #1A5F8A; border: 1px solid #90C4E0; }
+.tag-deniz   { background: #E8F8F0; color: #1A9E5C; border: 1px solid #A3DFC0; }
+.tag-inbound { background: #FEF3E2; color: #B45309; border: 1px solid #F4C17A; }
+.tag-joey    { background: #EEF2FF; color: #4F46E5; border: 1px solid #C7D2FE; }
+.tag-challenge { background: #F5F0FF; color: #6D28D9; border: 1px solid #C4B5FD; }
+.tag-renewal { background: #F3F0FF; color: #6D28D9; border: 1px solid #C4B5FD; }
+.tag-renewed { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+.tag-ending  { background: #FEF3E2; color: #B45309; border: 1px solid #F4C17A; }
+.panel-summary { display: flex; gap: 16px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.sum-stat { display: flex; flex-direction: column; gap: 1px; }
+.sum-num { font-family: var(--mono); font-size: 18px; font-weight: 500; color: var(--text-primary); line-height: 1; }
+.sum-lbl { font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+.panel-definition { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+.panel-definition strong { color: var(--text-body); font-weight: 600; }
+.def-title { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--steel-400); margin-bottom: 6px; display: block; }
+
+/* HISTORY TABLE */
+.history-wrap { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.history-table { width: 100%; border-collapse: collapse; }
+.history-table thead tr { background: var(--navy-900); }
+.history-table th { padding: 12px 18px; font-size: 11px; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; color: rgba(255,255,255,0.5); text-align: center; white-space: nowrap; }
+.history-table th:first-child, .history-table th:nth-child(2) { text-align: left; }
+.history-table tbody tr { border-top: 1px solid var(--border); transition: background 0.1s; cursor: pointer; }
+.history-table tbody tr:hover { background: var(--surface-2); }
+.history-table tbody tr.current-row { background: #EEF6FD; }
+.history-table tbody tr.current-row:hover { background: #E4F0FA; }
+.history-table td { padding: 12px 18px; font-size: 13px; text-align: center; font-family: var(--mono); color: var(--text-body); }
+.history-table td:first-child { font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--steel-700); text-align: left; }
+.history-table td:nth-child(2) { font-size: 11px; color: var(--text-muted); text-align: left; font-family: var(--sans); }
+.hist-pill { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; }
+.hist-pill.green { background: var(--green-bg); color: var(--green); }
+.hist-pill.red   { background: var(--red-bg);   color: var(--red); }
+.hist-pill.gold  { background: var(--gold-bg);  color: var(--gold); }
+.hist-pill.neutral { background: var(--surface-2); color: var(--text-muted); }
+
+#overlay { position: fixed; inset: 0; z-index: 490; display: none; }
+#overlay.active { display: block; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--steel-400); }
+</style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div class="loading-brand">Strong Standard</div>
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">Loading leadership data...</div>
+</div>
+<div id="error-screen" class="hidden">
+  <div class="loading-brand">Strong Standard</div>
+  <div class="error-title">Could not load data</div>
+  <div class="error-msg" id="error-msg"></div>
+  <button class="retry-btn" onclick="init()">↻ Retry</button>
+</div>
+<div id="overlay" onclick="closeAllPanels()"></div>
+
+<!-- PANELS -->
+<div class="floating-panel" id="panel-optins">
+  <div class="panel-header"><span class="panel-title">Resource Opt-ins · This Week</span><button class="panel-close" onclick="closeAllPanels()">✕</button></div>
+  <div class="panel-body">
+    <div class="panel-summary" id="summary-optins" style="margin-top:0;padding-top:0;border-top:none;"></div>
+    <div id="def-optins" class="panel-definition"></div>
+  </div>
+</div>
+<div class="floating-panel" id="panel-calls">
+  <div class="panel-header"><span class="panel-title">Calls Booked · This Week</span><button class="panel-close" onclick="closeAllPanels()">✕</button></div>
+  <div class="panel-body"><div class="lead-list" id="list-calls"></div><div class="panel-summary" id="summary-calls"></div><div id="def-calls" class="panel-definition"></div></div>
+</div>
+<div class="floating-panel" id="panel-contracts">
+  <div class="panel-header"><span class="panel-title">New Contracts · This Week</span><button class="panel-close" onclick="closeAllPanels()">✕</button></div>
+  <div class="panel-body"><div class="lead-list" id="list-contracts"></div><div class="panel-summary" id="summary-contracts"></div><div id="def-contracts" class="panel-definition"></div></div>
+</div>
+<div class="floating-panel" id="panel-renewal-opp">
+  <div class="panel-header"><span class="panel-title">Renewal Opportunities · This Week</span><button class="panel-close" onclick="closeAllPanels()">✕</button></div>
+  <div class="panel-body"><div class="lead-list" id="list-renewal-opp"></div><div class="panel-summary" id="summary-renewal-opp"></div><div id="def-renewal-opp" class="panel-definition"></div></div>
+</div>
+<div class="floating-panel" id="panel-renewed">
+  <div class="panel-header"><span class="panel-title">Contracts Renewed · This Week</span><button class="panel-close" onclick="closeAllPanels()">✕</button></div>
+  <div class="panel-body"><div class="lead-list" id="list-renewed"></div><div class="panel-summary" id="summary-renewed"></div><div id="def-renewed" class="panel-definition"></div></div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="header-brand">
+    <div class="brand-mark">SS</div>
+    <span class="brand-name">Strong Standard</span>
+    <div class="brand-pipe"></div>
+    <span class="brand-sub">Leadership Scorecard</span>
+  </div>
+  <div class="week-nav">
+    <button id="btn-prev" onclick="navigate(-1)">‹</button>
+    <div class="week-nav-center">
+      <span class="nav-week-id" id="nav-week-id">—</span>
+      <span class="nav-date-range" id="nav-date-range">—</span>
+    </div>
+    <button id="btn-next" onclick="navigate(1)">›</button>
+  </div>
+  <div class="header-right">
+    <span class="header-meta" id="header-meta">Updated —</span>
+    <button class="refresh-btn" onclick="init()">↻ Refresh</button>
+  </div>
+</header>
+
+<main>
+  <!-- SCORECARD -->
+  <section>
+    <div class="section-header">
+      <span class="section-label">Department Scorecard</span>
+      <span class="section-meta" id="sc-meta">Weekly · Fri–Thu</span>
+    </div>
+    <div class="scorecard-grid" id="scorecard-grid"></div>
+  </section>
+
+  <!-- HISTORICAL -->
+  <section>
+    <div class="section-header">
+      <span class="section-label">Historical</span>
+      <span class="section-meta">Last 10 weeks · click row to navigate</span>
+    </div>
+    <div class="history-wrap">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>Week</th>
+            <th>Dates</th>
+            <th>Resource Opt-ins</th>
+            <th>Calls Booked</th>
+            <th>New Contracts</th>
+            <th>Renewal Opp.</th>
+            <th>Renewed</th>
+          </tr>
+        </thead>
+        <tbody id="history-body"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const SHEET_ID  = '1ctM6K8hQfh73bi7f-MtXkqW3BaPxU73NZf8xPJQUEOc';
+const API_KEY   = 'AIzaSyC7WtRVmLS2mo53i_Cge8NAlJ5tB2kaHjE';
+const TAB_LEADS  = 'Leads applied';
+const TAB_DMS    = 'DM TRACKING INDEX';
+const TAB_CLIENT = 'Client Mastersheet';
+
+// Column indices (0-based)
+const L = { firstName:0, lastName:1, salesCallBookedDate:10, callStatus:11, salesCallWith:12, endInSale:13, source:16, callScheduledDate:17 };
+const D = { firstName:0, lastName:1, igHandle:2, newLeadTS:4, setter:7 };
+const C = { firstName:0, lastName:1, product:3, datePurchased:5, coach:9, newOrResign:18, newEndDate:17, resign:19 };
+
+const COMPLETED = new Set(['Showed','Cancelled','No Show','Disqualified on sales call','Follow Up']);
+const SHOWED    = new Set(['Showed','Follow Up','Disqualified on sales call']);
+const QUAL      = new Set(['Showed','Follow Up']);
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let WEEKS = [], currentIdx = 0;
+let leadsRaw = [], dmsRaw = [], clientRaw = [];
+
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+function parseDate(s) {
+  if (!s) return null; s = String(s).trim(); if (!s) return null;
+  let m;
+  m = s.match(/^(\w+)\s+(\d+),\s+(\d{4})$/);
+  if (m) { const mo={January:0,February:1,March:2,April:3,May:4,June:5,July:6,August:7,September:8,October:9,November:10,December:11}[m[1]]; if(mo!==undefined)return new Date(+m[3],mo,+m[2]); }
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s+(\d{1,2}):(\d{2}):(\d{2})$/);
+  if (m) { let yr=+m[3]; if(yr<100)yr+=2000; return new Date(yr,+m[1]-1,+m[2],+m[4],+m[5],+m[6]); }
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (m) { let yr=+m[3]; if(yr<100)yr+=2000; return new Date(yr,+m[1]-1,+m[2]); }
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return new Date(+m[1],+m[2]-1,+m[3]);
+  return null;
+}
+function weekStart(d) { const day=d.getDay(); const diff=(day-5+7)%7; const ws=new Date(d); ws.setDate(d.getDate()-diff); ws.setHours(0,0,0,0); return ws; }
+function addDays(d,n) { const r=new Date(d); r.setDate(r.getDate()+n); return r; }
+function inRange(d,s,e) { return d>=s && d<=e; }
+function fmtShort(d) { return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]+' '+d.getDate(); }
+function inWeek(d,ws) { const we=new Date(ws); we.setDate(ws.getDate()+6); return d>=ws&&d<=we; }
+
+// Unique DM count: deduplicate by IG Handle, else First+Last Name
+function uniqueDMCount(rows) {
+  const seen = new Set();
+  for (const r of rows) {
+    const ig = (r[D.igHandle]||'').trim().toLowerCase();
+    const key = ig || ((r[D.firstName]||'').trim()+' '+(r[D.lastName]||'').trim()).trim().toLowerCase() || '__unknown__';
+    seen.add(key);
+  }
+  return seen.size;
+}
+
+// ─── FETCH ────────────────────────────────────────────────────────────────────
+async function fetchSheet(tab) {
+  const url=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(tab)}?key=${API_KEY}`;
+  const res=await fetch(url);
+  if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e?.error?.message||`HTTP ${res.status}`);}
+  const data=await res.json();
+  return (data.values||[]).slice(1);
+}
+
+// ─── CALC ─────────────────────────────────────────────────────────────────────
+function calcWeek(ws) {
+  const we = addDays(ws,6); we.setHours(23,59,59,999);
+  const wsD = new Date(ws); wsD.setHours(0,0,0,0);
+
+  // Resource Opt-ins: unique DMs with a setter assigned in this week
+  const dmAllWeek = dmsRaw.filter(r=>{ const d=parseDate(r[D.newLeadTS]); return d&&inWeek(d,ws); });
+  const dmWithSetter = dmAllWeek.filter(r=>(r[D.setter]||'').trim()!=='');
+  const uniqueOptins = uniqueDMCount(dmWithSetter);
+  const rawOptins = dmWithSetter.length;
+
+  // Opt-ins breakdown by setter for tooltip
+  const dmEmery = dmWithSetter.filter(r=>(r[D.setter]||'').trim()==='Emery');
+  const dmDeniz = dmWithSetter.filter(r=>(r[D.setter]||'').trim()==='Deniz');
+  const uniqueEmery = uniqueDMCount(dmEmery);
+  const uniqueDeniz = uniqueDMCount(dmDeniz);
+
+  // Calls Booked
+  const happened = leadsRaw.filter(r=>{ const d=parseDate(r[L.salesCallBookedDate]); return d&&inRange(d,wsD,we); });
+  const callsList = happened.map(r=>({
+    name:[(r[L.firstName]||'').trim(),(r[L.lastName]||'').trim()].filter(Boolean).join(' ')||'—',
+    source:(r[L.source]||'').trim()
+  }));
+  const emeryCallsN = callsList.filter(c=>c.source==='Emery').length;
+  const challengeCallsN = callsList.filter(c=>(c.source||'').includes('Challenge')).length;
+  const inboundCallsN = callsList.length - emeryCallsN - challengeCallsN;
+
+  // New Contracts
+  const contracts = clientRaw.filter(r=>{ const d=parseDate(r[C.datePurchased]); return d&&inRange(d,wsD,we)&&(r[C.newOrResign]||'').trim().toLowerCase()==='new'; });
+  const contractsList = contracts.map(r=>({
+    name:[(r[C.firstName]||'').trim(),(r[C.lastName]||'').trim()].filter(Boolean).join(' ')||'—',
+    product:(r[C.product]||'').trim(),
+    coach:(r[C.coach]||'').trim()
+  }));
+
+  // Renewal Opportunities: clients whose New End Date falls in this week
+  const renewalOpp = clientRaw.filter(r=>{ const d=parseDate(r[C.newEndDate]); return d&&inRange(d,wsD,we); });
+  const renewalOppList = renewalOpp.map(r=>({
+    name:[(r[C.firstName]||'').trim(),(r[C.lastName]||'').trim()].filter(Boolean).join(' ')||'—',
+    endDate:(r[C.newEndDate]||'').trim(),
+    product:(r[C.product]||'').trim(),
+    resigned:(r[C.resign]||'').trim().toLowerCase()==='yes'
+  }));
+
+  // Contracts Renewed: from renewal opps, those with Resign = Yes
+  const renewedList = renewalOppList.filter(c=>c.resigned);
+  const retentionRate = renewalOpp.length>0 ? renewedList.length/renewalOpp.length : null;
+
+  return {
+    ws, we,
+    uniqueOptins, rawOptins, uniqueEmery, uniqueDeniz,
+    callsBooked: happened.length, callsList, emeryCallsN, challengeCallsN, inboundCallsN,
+    newContracts: contracts.length, contractsList,
+    renewalOpp: renewalOpp.length, renewalOppList,
+    renewed: renewedList.length, renewedList, retentionRate
+  };
+}
+
+// ─── CATEGORY ─────────────────────────────────────────────────────────────────
+function cat(key, val) {
+  const t = {
+    uniqueOptins: { r:550, a:700 },
+    callsBooked:  { r:10,  a:15  },
+    newContracts: { r:3,   a:5   },
+  }[key];
+  if (!t) return 'neutral';
+  if (val >= t.a) return 'gold';
+  if (val >= t.r) return 'green';
+  return 'red';
+}
+function badgeClass(c) { return {green:'badge-green',red:'badge-red',gold:'badge-gold',neutral:'badge-neutral'}[c]||'badge-neutral'; }
+function badgeLabel(c) { return {green:'On Track',red:'Red',gold:'Amazing',neutral:'—'}[c]||'—'; }
+
+// ─── PANELS ───────────────────────────────────────────────────────────────────
+const DEFS = {
+  uniqueOptins: '<strong>Resource Opt-ins</strong> — Unique leads that opted in this week (DM Tracking Index, col H ≠ blank). One person counted once per week even if they requested multiple resources. Identity = IG Handle if present, else First Name + Last Name.',
+  callsBooked:  '<strong>Calls Booked</strong> — Total calls that occurred this week. Breakdown by setter source.',
+  newContracts: '<strong>New Contracts</strong> — New clients who purchased this week (New End Date anchored to Date Purchased in Client Mastersheet).',
+  renewalOpp:   '<strong>Renewal Opportunities</strong> — Clients whose program end date (New End Date, col R) falls within this week. These are the clients up for renewal.',
+  renewed:      '<strong>Contracts Renewed</strong> — From the renewal opportunities this week, clients who re-signed (Resign = Yes, col T). Retention rate = Renewed ÷ Opportunities.',
+};
+
+function closeAllPanels() {
+  document.querySelectorAll('.floating-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('overlay').classList.remove('active');
+}
+
+function positionAndShow(panel, rect) {
+  closeAllPanels();
+  const pw = 340, gap = 10;
+  let left = rect.left + rect.width/2 - pw/2;
+  let top  = rect.bottom + gap + window.scrollY;
+  if (left + pw > window.innerWidth - 12) left = window.innerWidth - pw - 12;
+  if (left < 8) left = 8;
+  if (top + 400 > window.scrollY + window.innerHeight) top = rect.top + window.scrollY - 400 - gap;
+  panel.style.left = left + 'px';
+  panel.style.top  = top + 'px';
+  panel.style.width = pw + 'px';
+  panel.classList.add('active');
+  document.getElementById('overlay').classList.add('active');
+}
+
+function openOptinsPanel(e) {
+  const w = window._lastW; if(!w) return;
+  const panel = document.getElementById('panel-optins');
+  document.getElementById('summary-optins').innerHTML = [
+    {n: w.uniqueOptins, l: 'Unique Opt-ins'},
+    {n: w.rawOptins, l: 'Raw Total'},
+    {n: w.uniqueEmery, l: 'Emery'},
+    {n: w.uniqueDeniz, l: 'Deniz'},
+  ].map(s=>`<div class="sum-stat"><span class="sum-num">${s.n}</span><span class="sum-lbl">${s.l}</span></div>`).join('');
+  document.getElementById('def-optins').innerHTML = `<span class="def-title">Definition</span>${DEFS.uniqueOptins}`;
+  positionAndShow(panel, e.currentTarget.getBoundingClientRect());
+}
+
+function openCallsPanel(e) {
+  const w = window._lastW; if(!w) return;
+  const panel = document.getElementById('panel-calls');
+  const list = document.getElementById('list-calls');
+  list.innerHTML = w.callsList.map(c=>{
+    const isCh = (c.source||'').includes('Challenge');
+    const src = c.source==='Emery'?'Emery':isCh?'Challenge':'Inbound';
+    const cls = c.source==='Emery'?'tag-emery':isCh?'tag-challenge':'tag-inbound';
+    return `<div class="lead-row"><span class="lead-name">${c.name}</span><span class="lead-tag ${cls}">${src}</span></div>`;
+  }).join('') || '<div style="padding:12px;color:var(--text-faint);font-size:13px;text-align:center;">No calls this week</div>';
+  document.getElementById('summary-calls').innerHTML = [
+    {n:w.emeryCallsN,l:'Emery'},{n:w.challengeCallsN,l:'Challenge'},{n:w.inboundCallsN,l:'Inbound'},{n:w.callsBooked,l:'Total'}
+  ].map(s=>`<div class="sum-stat"><span class="sum-num">${s.n}</span><span class="sum-lbl">${s.l}</span></div>`).join('');
+  document.getElementById('def-calls').innerHTML = `<span class="def-title">Definition</span>${DEFS.callsBooked}`;
+  positionAndShow(panel, e.currentTarget.getBoundingClientRect());
+}
+
+function openContractsPanel(e) {
+  const w = window._lastW; if(!w) return;
+  const panel = document.getElementById('panel-contracts');
+  const list = document.getElementById('list-contracts');
+  list.innerHTML = w.contractsList.map(c=>`
+    <div class="lead-row">
+      <span class="lead-name">${c.name}</span>
+      <span class="lead-tag tag-joey">${c.product||'—'}</span>
+    </div>`).join('') || '<div style="padding:12px;color:var(--text-faint);font-size:13px;text-align:center;">No contracts this week</div>';
+  document.getElementById('summary-contracts').innerHTML = [
+    {n:w.newContracts,l:'New Clients'}
+  ].map(s=>`<div class="sum-stat"><span class="sum-num">${s.n}</span><span class="sum-lbl">${s.l}</span></div>`).join('');
+  document.getElementById('def-contracts').innerHTML = `<span class="def-title">Definition</span>${DEFS.newContracts}`;
+  positionAndShow(panel, e.currentTarget.getBoundingClientRect());
+}
+
+function openRenewalOppPanel(e) {
+  const w = window._lastW; if(!w) return;
+  const panel = document.getElementById('panel-renewal-opp');
+  const list = document.getElementById('list-renewal-opp');
+  list.innerHTML = w.renewalOppList.map(c=>{
+    const tag = c.resigned ? '<span class="lead-tag tag-renewed">Renewed</span>' : '<span class="lead-tag tag-ending">Ending</span>';
+    return `<div class="lead-row"><span class="lead-name">${c.name}</span>${tag}</div>`;
+  }).join('') || '<div style="padding:12px;color:var(--text-faint);font-size:13px;text-align:center;">No renewals this week</div>';
+  document.getElementById('summary-renewal-opp').innerHTML = [
+    {n:w.renewalOpp,l:'Opportunities'},{n:w.renewed,l:'Renewed'}
+  ].map(s=>`<div class="sum-stat"><span class="sum-num">${s.n}</span><span class="sum-lbl">${s.l}</span></div>`).join('');
+  document.getElementById('def-renewal-opp').innerHTML = `<span class="def-title">Definition</span>${DEFS.renewalOpp}`;
+  positionAndShow(panel, e.currentTarget.getBoundingClientRect());
+}
+
+function openRenewedPanel(e) {
+  const w = window._lastW; if(!w) return;
+  const panel = document.getElementById('panel-renewed');
+  const list = document.getElementById('list-renewed');
+  list.innerHTML = w.renewedList.map(c=>`
+    <div class="lead-row">
+      <span class="lead-name">${c.name}</span>
+      <span class="lead-tag tag-renewed">Renewed</span>
+    </div>`).join('') || '<div style="padding:12px;color:var(--text-faint);font-size:13px;text-align:center;">No renewals this week</div>';
+  const retStr = w.retentionRate !== null ? Math.round(w.retentionRate*100)+'%' : '—';
+  document.getElementById('summary-renewed').innerHTML = [
+    {n:w.renewed,l:'Renewed'},{n:w.renewalOpp,l:'Opportunities'},{n:retStr,l:'Retention %'}
+  ].map(s=>`<div class="sum-stat"><span class="sum-num">${s.n}</span><span class="sum-lbl">${s.l}</span></div>`).join('');
+  document.getElementById('def-renewed').innerHTML = `<span class="def-title">Definition</span>${DEFS.renewed}`;
+  positionAndShow(panel, e.currentTarget.getBoundingClientRect());
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+function render(w) {
+  window._lastW = w;
+
+  // Nav
+  document.getElementById('nav-week-id').textContent = `W${currentIdx + 1}`;
+  document.getElementById('nav-date-range').textContent = `${fmtShort(w.ws)} – ${fmtShort(w.we)}`;
+  document.getElementById('btn-prev').disabled = currentIdx <= 0;
+  document.getElementById('btn-next').disabled = currentIdx >= WEEKS.length - 1;
+  document.getElementById('sc-meta').textContent = `${fmtShort(w.ws)} – ${fmtShort(w.we)} · Fri–Thu`;
+
+  const cards = [
+    {
+      key:'uniqueOptins', label:'Resource Opt-ins', value:w.uniqueOptins,
+      thresh:'Target ≥ 550',
+      onclick:'openOptinsPanel(event)',
+      hint:'Click for breakdown'
+    },
+    {
+      key:'callsBooked', label:'Calls Booked', value:w.callsBooked,
+      thresh:'Min 10 · Good 11–14 · Amazing 15+',
+      onclick:'openCallsPanel(event)',
+      hint:'Click for breakdown'
+    },
+    {
+      key:'newContracts', label:'New Contracts', value:w.newContracts,
+      thresh:'Min 3 · Good 4–5 · Amazing 6+',
+      onclick:'openContractsPanel(event)',
+      hint:'Click to see clients'
+    },
+    {
+      key:'renewalOpp', label:'Renewal Opportunities', value:w.renewalOpp,
+      cat:'neutral',
+      thresh:'Programs ending this week',
+      onclick:'openRenewalOppPanel(event)',
+      hint:'Click to see clients'
+    },
+    {
+      key:'renewed', label:'Contracts Renewed', value:w.renewed,
+      cat:'neutral',
+      thresh: w.renewalOpp>0 ? `${w.renewed} of ${w.renewalOpp} · ${Math.round((w.retentionRate||0)*100)}% retention` : '—',
+      onclick:'openRenewedPanel(event)',
+      hint:'Click to see clients'
+    },
+  ];
+
+  document.getElementById('scorecard-grid').innerHTML = cards.map(m=>{
+    const c = m.cat || cat(m.key, m.value);
+    return `
+    <div class="metric-card ${c}" onclick="${m.onclick}">
+      <div class="metric-top">
+        <span class="metric-name">${m.label}</span>
+        <span class="badge ${badgeClass(c)}">${badgeLabel(c)}</span>
+      </div>
+      <div class="metric-value">${m.value}</div>
+      <div class="metric-threshold">${m.thresh}</div>
+      <div class="metric-hint">▸ ${m.hint}</div>
+    </div>`;
+  }).join('');
+
+  renderHistory();
+}
+
+function renderHistory() {
+  const tbody = document.getElementById('history-body');
+  const start = Math.max(0, currentIdx - 9);
+  const end   = currentIdx + 1;
+  const slice = WEEKS.slice(start, end).reverse();
+  tbody.innerHTML = slice.map((ws, i)=>{
+    const wIdx = currentIdx - i;
+    const w = calcWeek(ws);
+    const isCurrent = wIdx === currentIdx;
+    const c_o = cat('uniqueOptins', w.uniqueOptins);
+    const c_c = cat('callsBooked',  w.callsBooked);
+    const c_n = cat('newContracts', w.newContracts);
+    const retStr = w.renewalOpp > 0 ? `${w.renewed}/${w.renewalOpp}` : '—';
+    return `<tr class="${isCurrent?'current-row':''}" onclick="jumpTo(${wIdx})">
+      <td>W${wIdx+1}</td>
+      <td>${fmtShort(ws)} – ${fmtShort(addDays(ws,6))}</td>
+      <td><span class="hist-pill ${c_o}">${w.uniqueOptins}</span></td>
+      <td><span class="hist-pill ${c_c}">${w.callsBooked}</span></td>
+      <td><span class="hist-pill ${c_n}">${w.newContracts}</span></td>
+      <td><span class="hist-pill neutral">${w.renewalOpp}</span></td>
+      <td><span class="hist-pill neutral">${retStr}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── NAVIGATION ───────────────────────────────────────────────────────────────
+function navigate(dir) {
+  const next = currentIdx + dir;
+  if (next < 0 || next >= WEEKS.length) return;
+  currentIdx = next;
+  closeAllPanels();
+  render(calcWeek(WEEKS[currentIdx]));
+}
+
+function jumpTo(idx) {
+  currentIdx = idx;
+  closeAllPanels();
+  render(calcWeek(WEEKS[currentIdx]));
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+async function init() {
+  document.getElementById('loading-screen').classList.remove('hidden');
+  document.getElementById('error-screen').classList.add('hidden');
+  try {
+    document.getElementById('loading-text').textContent = 'Loading DM Tracking...';
+    dmsRaw = await fetchSheet(TAB_DMS);
+    document.getElementById('loading-text').textContent = 'Loading Leads...';
+    leadsRaw = await fetchSheet(TAB_LEADS);
+    document.getElementById('loading-text').textContent = 'Loading Client data...';
+    clientRaw = await fetchSheet(TAB_CLIENT);
+
+    // Build week list from DM data
+    const allDates = dmsRaw.map(r=>parseDate(r[D.newLeadTS])).filter(Boolean);
+    if (!allDates.length) throw new Error('No dates found in DM Tracking Index.');
+
+    const minDate = new Date(Math.min(...allDates));
+    const today   = new Date();
+    let ws = weekStart(minDate);
+    WEEKS = [];
+    while (ws <= weekStart(today)) {
+      WEEKS.push(new Date(ws));
+      ws = addDays(ws, 7);
+    }
+    if (!WEEKS.length) throw new Error('Could not generate week list.');
+
+    currentIdx = WEEKS.length - 1;
+    document.getElementById('header-meta').textContent = 'Updated ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    document.getElementById('loading-screen').classList.add('hidden');
+    render(calcWeek(WEEKS[currentIdx]));
+
+  } catch(err) {
+    document.getElementById('loading-screen').classList.add('hidden');
+    document.getElementById('error-screen').classList.remove('hidden');
+    document.getElementById('error-msg').textContent = err.message;
+  }
+}
+
+document.addEventListener('keydown', e=>{
+  if (e.key==='ArrowLeft') navigate(-1);
+  if (e.key==='ArrowRight') navigate(1);
+  if (e.key==='Escape') closeAllPanels();
+});
+
+init();
+</script>
+</body>
+</html>
