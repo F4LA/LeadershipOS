@@ -83,14 +83,26 @@ main { max-width: 1280px; margin: 0 auto; padding: 2.5rem 2.5rem 4rem; display: 
 .metric-card:hover .metric-hint { opacity: 1; }
 
 /* FLOATING PANELS */
-.floating-panel { position: fixed; background: var(--surface); border: 1.5px solid var(--border-strong); border-radius: var(--radius); min-width: 280px; max-width: 340px; z-index: 500; box-shadow: 0 12px 40px rgba(8,13,26,0.14), 0 2px 8px rgba(8,13,26,0.06); display: none; animation: panelIn 0.15s ease; overflow: hidden; }
+.floating-panel { position: fixed; background: var(--surface); border: 1.5px solid var(--border-strong); border-radius: var(--radius); min-width: 280px; max-width: 340px; z-index: 500; box-shadow: 0 12px 40px rgba(8,13,26,0.14), 0 2px 8px rgba(8,13,26,0.06); display: none; animation: panelIn 0.15s ease; overflow: visible; }
 @keyframes panelIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 .floating-panel.active { display: block; }
+/* PANEL DRAG + RESIZE */
+.panel-header { cursor: grab; }
+.panel-header:active { cursor: grabbing; }
+.panel-resize-handle {
+  position: absolute; bottom: 0; right: 0;
+  width: 18px; height: 18px; cursor: se-resize;
+  display: flex; align-items: flex-end; justify-content: flex-end;
+  padding: 3px; box-sizing: border-box; z-index: 10;
+}
+.panel-resize-handle svg { opacity: 0.25; transition: opacity 0.15s; }
+.floating-panel:hover .panel-resize-handle svg { opacity: 0.55; }
+
 .panel-header { background: var(--navy-900); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
 .panel-title { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.7); }
 .panel-close { background: none; border: none; color: rgba(255,255,255,0.35); cursor: pointer; font-size: 14px; padding: 0; line-height: 1; transition: color 0.15s; }
 .panel-close:hover { color: rgba(255,255,255,0.8); }
-.panel-body { padding: 14px 16px; }
+.panel-body { padding: 14px 16px; overflow: hidden; }
 .lead-list { display: flex; flex-direction: column; gap: 5px; max-height: 220px; overflow-y: auto; }
 .lead-list::-webkit-scrollbar { width: 4px; }
 .lead-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
@@ -162,22 +174,23 @@ main { max-width: 1280px; margin: 0 auto; padding: 2.5rem 2.5rem 4rem; display: 
     <div class="panel-summary" id="summary-optins" style="margin-top:0;padding-top:0;border-top:none;"></div>
     <div id="def-optins" class="panel-definition"></div>
   </div>
+  <div class="panel-resize-handle" onmousedown="startPanelResize(event)"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M9 1L1 9M9 5L5 9M9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
 </div>
 <div class="floating-panel" id="panel-calls">
   <div class="panel-header"><span class="panel-title">Calls Booked · This Week</span><button class="panel-close" onclick="closeAllPanels()">✕</button></div>
-  <div class="panel-body"><div class="lead-list" id="list-calls"></div><div class="panel-summary" id="summary-calls"></div><div id="def-calls" class="panel-definition"></div></div>
+  <div class="panel-body"><div class="lead-list" id="list-calls"></div><div class="panel-summary" id="summary-calls"></div><div id="def-calls" class="panel-definition"></div></div><div class="panel-resize-handle" onmousedown="startPanelResize(event)"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M9 1L1 9M9 5L5 9M9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
 </div>
 <div class="floating-panel" id="panel-contracts">
   <div class="panel-header"><span class="panel-title">New Contracts · This Week</span><button class="panel-close" onclick="closeAllPanels()">✕</button></div>
-  <div class="panel-body"><div class="lead-list" id="list-contracts"></div><div class="panel-summary" id="summary-contracts"></div><div id="def-contracts" class="panel-definition"></div></div>
+  <div class="panel-body"><div class="lead-list" id="list-contracts"></div><div class="panel-summary" id="summary-contracts"></div><div id="def-contracts" class="panel-definition"></div></div><div class="panel-resize-handle" onmousedown="startPanelResize(event)"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M9 1L1 9M9 5L5 9M9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
 </div>
 <div class="floating-panel" id="panel-renewal-opp">
   <div class="panel-header"><span class="panel-title">Renewal Opportunities · This Week</span><button class="panel-close" onclick="closeAllPanels()">✕</button></div>
-  <div class="panel-body"><div class="lead-list" id="list-renewal-opp"></div><div class="panel-summary" id="summary-renewal-opp"></div><div id="def-renewal-opp" class="panel-definition"></div></div>
+  <div class="panel-body"><div class="lead-list" id="list-renewal-opp"></div><div class="panel-summary" id="summary-renewal-opp"></div><div id="def-renewal-opp" class="panel-definition"></div></div><div class="panel-resize-handle" onmousedown="startPanelResize(event)"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M9 1L1 9M9 5L5 9M9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
 </div>
 <div class="floating-panel" id="panel-renewed">
   <div class="panel-header"><span class="panel-title">Contracts Renewed · This Week</span><button class="panel-close" onclick="closeAllPanels()">✕</button></div>
-  <div class="panel-body"><div class="lead-list" id="list-renewed"></div><div class="panel-summary" id="summary-renewed"></div><div id="def-renewed" class="panel-definition"></div></div>
+  <div class="panel-body"><div class="lead-list" id="list-renewed"></div><div class="panel-summary" id="summary-renewed"></div><div id="def-renewed" class="panel-definition"></div></div><div class="panel-resize-handle" onmousedown="startPanelResize(event)"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M9 1L1 9M9 5L5 9M9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
 </div>
 
 <!-- HEADER -->
@@ -316,7 +329,7 @@ function calcWeek(ws) {
   const uniqueDeniz = uniqueDMCount(dmDeniz);
 
   // Calls Booked
-  const happened = leadsRaw.filter(r=>{ const d=parseDate(r[L.salesCallBookedDate]); return d&&inRange(d,wsD,we); });
+  const happened = leadsRaw.filter(r=>{ const d=parseDate(r[L.callScheduledDate]); return d&&inRange(d,wsD,we); });
   const callsList = happened.map(r=>({
     name:[(r[L.firstName]||'').trim(),(r[L.lastName]||'').trim()].filter(Boolean).join(' ')||'—',
     source:(r[L.source]||'').trim()
@@ -374,7 +387,7 @@ function badgeLabel(c) { return {green:'On Track',red:'Red',gold:'Amazing',neutr
 // ─── PANELS ───────────────────────────────────────────────────────────────────
 const DEFS = {
   uniqueOptins: '<strong>Resource Opt-ins</strong> — Unique leads that opted in this week (DM Tracking Index, col H ≠ blank). One person counted once per week even if they requested multiple resources. Identity = IG Handle if present, else First Name + Last Name.',
-  callsBooked:  '<strong>Calls Booked</strong> — Total calls that occurred this week. Breakdown by setter source.',
+  callsBooked:  '<strong>Calls Booked</strong> — Total calls booked/set this week (col R, Call Scheduled Date). Leading indicator. Breakdown by setter source.',
   newContracts: '<strong>New Contracts</strong> — New clients who purchased this week (New End Date anchored to Date Purchased in Client Mastersheet).',
   renewalOpp:   '<strong>Renewal Opportunities</strong> — Clients whose program end date (New End Date, col R) falls within this week. These are the clients up for renewal.',
   renewed:      '<strong>Contracts Renewed</strong> — From the renewal opportunities this week, clients who re-signed (Resign = Yes, col T). Retention rate = Renewed ÷ Opportunities.',
@@ -385,7 +398,53 @@ function closeAllPanels() {
   document.getElementById('overlay').classList.remove('active');
 }
 
+
+// ─── PANEL DRAG ───────────────────────────────────────────────────────────────
+function initPanelDrag() {
+  document.querySelectorAll('.floating-panel').forEach(panel => {
+    const header = panel.querySelector('.panel-header');
+    if (!header || header._dragBound) return;
+    header._dragBound = true;
+    header.addEventListener('mousedown', function(e) {
+      if (e.target.closest('.panel-close')) return;
+      e.preventDefault();
+      const startX = e.clientX, startY = e.clientY;
+      const startL = parseInt(panel.style.left)||panel.getBoundingClientRect().left;
+      const startT = parseInt(panel.style.top)||panel.getBoundingClientRect().top;
+      function onMove(ev) {
+        panel.style.left = (startL + ev.clientX - startX) + 'px';
+        panel.style.top  = (startT + ev.clientY - startY) + 'px';
+      }
+      function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+}
+
+// ─── PANEL RESIZE ─────────────────────────────────────────────────────────────
+function startPanelResize(e) {
+  e.preventDefault(); e.stopPropagation();
+  const panel = e.currentTarget.closest('.floating-panel');
+  if (!panel) return;
+  const startX = e.clientX, startY = e.clientY;
+  const startW = panel.offsetWidth, startH = panel.offsetHeight;
+  function onMove(ev) {
+    const newW = Math.max(280, startW + ev.clientX - startX);
+    const newH = Math.max(200, startH + ev.clientY - startY);
+    panel.style.width  = newW + 'px';
+    panel.style.maxWidth = newW + 'px';
+    panel.style.height = newH + 'px';
+    const list = panel.querySelector('.lead-list');
+    if (list) list.style.maxHeight = (newH - 150) + 'px';
+  }
+  function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
 function positionAndShow(panel, rect) {
+  initPanelDrag();
   closeAllPanels();
   const pw = 340, gap = 10;
   let left = rect.left + rect.width/2 - pw/2;
