@@ -261,7 +261,7 @@ const TAB_CLIENT = 'Client Mastersheet';
 // Column indices (0-based)
 const L = { firstName:0, lastName:1, salesCallBookedDate:10, callStatus:11, salesCallWith:12, endInSale:13, source:16, callScheduledDate:17 };
 const D = { firstName:0, lastName:1, igHandle:2, newLeadTS:4, setter:7 };
-const C = { firstName:0, lastName:1, product:3, datePurchased:5, coach:9, newOrResign:18, newEndDate:17, resign:19 };
+const C = { firstName:0, lastName:1, product:3, datePurchased:5, coach:9, newOrResign:18, newEndDate:17, resign:19, refund:24 };  // col Y=refund
 
 const COMPLETED = new Set(['Showed','Cancelled','No Show','Disqualified on sales call','Follow Up']);
 const SHOWED    = new Set(['Showed','Follow Up','Disqualified on sales call']);
@@ -343,8 +343,10 @@ function calcWeek(ws) {
   const contractsList = contracts.map(r=>({
     name:[(r[C.firstName]||'').trim(),(r[C.lastName]||'').trim()].filter(Boolean).join(' ')||'—',
     product:(r[C.product]||'').trim(),
-    coach:(r[C.coach]||'').trim()
+    coach:(r[C.coach]||'').trim(),
+    refund:String(r[C.refund]||'').trim().toUpperCase()==='TRUE'
   }));
+  const newContractsNet = contractsList.filter(c=>!c.refund).length;
 
   // Renewal Opportunities: clients whose New End Date falls in this week
   const renewalOpp = clientRaw.filter(r=>{ const d=parseDate(r[C.newEndDate]); return d&&inRange(d,wsD,we); });
@@ -363,7 +365,7 @@ function calcWeek(ws) {
     ws, we,
     uniqueOptins, rawOptins, uniqueEmery, uniqueDeniz,
     callsBooked: happened.length, callsList, emeryCallsN, challengeCallsN, inboundCallsN,
-    newContracts: contracts.length, contractsList,
+    newContracts: newContractsNet, contractsList,
     renewalOpp: renewalOpp.length, renewalOppList,
     renewed: renewedList.length, renewedList, retentionRate
   };
@@ -493,13 +495,18 @@ function openContractsPanel(e) {
   const w = window._lastW; if(!w) return;
   const panel = document.getElementById('panel-contracts');
   const list = document.getElementById('list-contracts');
-  list.innerHTML = w.contractsList.map(c=>`
+  list.innerHTML = w.contractsList.map(c=>{
+    const nameSty = c.refund ? 'text-decoration:line-through;color:var(--text-faint);' : '';
+    const refTag = c.refund ? `<span class="lead-tag" style="background:#FDE8E8;color:#A02020;border:1px solid #F0B0B0;">Refund</span>` : '';
+    return `
     <div class="lead-row">
-      <span class="lead-name">${c.name}</span>
-      <span class="lead-tag tag-joey">${c.product||'—'}</span>
-    </div>`).join('') || '<div style="padding:12px;color:var(--text-faint);font-size:13px;text-align:center;">No contracts this week</div>';
+      <span class="lead-name" style="${nameSty}">${c.name}</span>
+      <span class="lead-tag tag-joey" style="${c.refund?'opacity:0.5;':''}">${c.product||'—'}</span>${refTag}
+    </div>`;}).join('') || '<div style="padding:12px;color:var(--text-faint);font-size:13px;text-align:center;">No contracts this week</div>';
+  const refundCount = w.contractsList.filter(c=>c.refund).length;
   document.getElementById('summary-contracts').innerHTML = [
-    {n:w.newContracts,l:'New Clients'}
+    {n:w.newContracts,l:'New Clients'},
+    {n:refundCount,l:'Refunds'}
   ].map(s=>`<div class="sum-stat"><span class="sum-num">${s.n}</span><span class="sum-lbl">${s.l}</span></div>`).join('');
   document.getElementById('def-contracts').innerHTML = `<span class="def-title">Definition</span>${DEFS.newContracts}`;
   positionAndShow(panel, e.currentTarget.getBoundingClientRect());
