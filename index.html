@@ -83,9 +83,9 @@ main { max-width: 1280px; margin: 0 auto; padding: 2.5rem 2.5rem 4rem; display: 
 .metric-card:hover .metric-hint { opacity: 1; }
 
 /* FLOATING PANELS */
-.floating-panel { position: fixed; background: var(--surface); border: 1.5px solid var(--border-strong); border-radius: var(--radius); min-width: 280px; max-width: 340px; z-index: 500; box-shadow: 0 12px 40px rgba(8,13,26,0.14), 0 2px 8px rgba(8,13,26,0.06); display: none; animation: panelIn 0.15s ease; overflow: visible; }
+.floating-panel { position: fixed; background: var(--surface); border: 1.5px solid var(--border-strong); border-radius: var(--radius); min-width: 280px; max-width: 340px; max-height: calc(100vh - 24px); z-index: 500; box-shadow: 0 12px 40px rgba(8,13,26,0.14), 0 2px 8px rgba(8,13,26,0.06); display: none; animation: panelIn 0.15s ease; overflow: hidden; }
 @keyframes panelIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-.floating-panel.active { display: block; }
+.floating-panel.active { display: flex; flex-direction: column; }
 /* PANEL DRAG + RESIZE */
 .panel-header { cursor: grab; }
 .panel-header:active { cursor: grabbing; }
@@ -98,11 +98,13 @@ main { max-width: 1280px; margin: 0 auto; padding: 2.5rem 2.5rem 4rem; display: 
 .panel-resize-handle svg { opacity: 0.25; transition: opacity 0.15s; }
 .floating-panel:hover .panel-resize-handle svg { opacity: 0.55; }
 
-.panel-header { background: var(--navy-900); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+.panel-header { background: var(--navy-900); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; }
 .panel-title { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.7); }
 .panel-close { background: none; border: none; color: rgba(255,255,255,0.35); cursor: pointer; font-size: 14px; padding: 0; line-height: 1; transition: color 0.15s; }
 .panel-close:hover { color: rgba(255,255,255,0.8); }
-.panel-body { padding: 14px 16px; overflow: hidden; }
+.panel-body { padding: 14px 16px; overflow-y: auto; overflow-x: hidden; min-height: 0; flex: 1 1 auto; }
+.panel-body::-webkit-scrollbar { width: 5px; }
+.panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 .lead-list { display: flex; flex-direction: column; gap: 5px; max-height: 220px; overflow-y: auto; }
 .lead-list::-webkit-scrollbar { width: 4px; }
 .lead-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
@@ -240,8 +242,8 @@ main { max-width: 1280px; margin: 0 auto; padding: 2.5rem 2.5rem 4rem; display: 
           <tr>
             <th>Week</th>
             <th>Dates</th>
-            <th>Resource Opt-ins</th>
-            <th>New · 90d</th>
+            <th>Total Opt-ins</th>
+            <th>New Opt-ins</th>
             <th>Calls Booked</th>
             <th>New Contracts</th>
             <th>Renewal Opp.</th>
@@ -264,15 +266,12 @@ const TAB_CLIENT = 'Client Mastersheet';
 
 // Column indices (0-based)
 const L = { firstName:0, lastName:1, salesCallBookedDate:10, callStatus:11, salesCallWith:12, endInSale:13, source:16, callScheduledDate:17 };
-const D = { firstName:0, lastName:1, igHandle:2, newLeadTS:4, setter:7 };
+const D = { firstName:0, lastName:1, igHandle:2, newLeadTS:4, setter:7, typeOfLead:8 };
 const C = { firstName:0, lastName:1, product:3, datePurchased:5, coach:9, newOrResign:18, newEndDate:17, resign:19, refund:24 };  // col Y=refund
 
 const COMPLETED = new Set(['Showed','Cancelled','No Show','Disqualified on sales call','Follow Up']);
 const SHOWED    = new Set(['Showed','Follow Up','Disqualified on sales call']);
 const QUAL      = new Set(['Showed','Follow Up']);
-
-// Lookback window to classify a setter opt-in as "new" (no prior setter opt-in within this many days).
-const NEW_LEAD_LOOKBACK_DAYS = 90;
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let WEEKS = [], currentIdx = 0;
@@ -323,31 +322,25 @@ function calcWeek(ws) {
   const we = addDays(ws,6); we.setHours(23,59,59,999);
   const wsD = new Date(ws); wsD.setHours(0,0,0,0);
 
-  // Resource Opt-ins: unique DMs with a setter assigned in this week
+  // Opt-ins: only rows with a setter assigned, in this week.
   const dmAllWeek = dmsRaw.filter(r=>{ const d=parseDate(r[D.newLeadTS]); return d&&inWeek(d,ws); });
   const dmWithSetter = dmAllWeek.filter(r=>(r[D.setter]||'').trim()!=='');
-  const uniqueOptins = uniqueDMCount(dmWithSetter);
-  const rawOptins = dmWithSetter.length;
 
-  // New (90-day): unique setter opt-ins this week whose identity had NO setter opt-in
-  // in the 90 days before the week start. Setter-only, matching how we count opt-ins.
-  const lookbackStart = addDays(wsD, -NEW_LEAD_LOOKBACK_DAYS);
-  const priorKeys = new Set();
-  for (const r of dmsRaw) {
-    if ((r[D.setter]||'').trim()==='') continue;
-    const d = parseDate(r[D.newLeadTS]);
-    if (d && d >= lookbackStart && d < wsD) priorKeys.add(dmKey(r));
-  }
-  let newOptins90 = 0;
-  const weekKeys = new Set();
-  for (const r of dmWithSetter) weekKeys.add(dmKey(r));
-  for (const k of weekKeys) if (!priorKeys.has(k)) newOptins90++;
+  // Total opt-ins: every setter event this week (counts repeats and existing leads).
+  const totalOptins = dmWithSetter.length;
 
-  // Opt-ins breakdown by setter for tooltip
-  const dmEmery = dmWithSetter.filter(r=>(r[D.setter]||'').trim()==='Emery');
-  const dmDeniz = dmWithSetter.filter(r=>(r[D.setter]||'').trim()==='Deniz');
-  const uniqueEmery = uniqueDMCount(dmEmery);
-  const uniqueDeniz = uniqueDMCount(dmDeniz);
+  // New opt-ins: distinct people this week with at least one row tagged "New lead" (col I).
+  // If any of a person's opt-ins this week is New, they count once — regardless of other rows.
+  const newRows = dmWithSetter.filter(r=>(r[D.typeOfLead]||'').trim().toLowerCase()==='new lead');
+  const newOptins = uniqueDMCount(newRows);
+
+  // Setter breakdown: raw event count per setter this week, sorted desc.
+  // Same base as Total Opt-ins (events, not people), so setters sum exactly to Total.
+  const bySetter = {};
+  for (const r of dmWithSetter) { const s=(r[D.setter]||'').trim(); bySetter[s]=(bySetter[s]||0)+1; }
+  const setterBreakdown = Object.keys(bySetter)
+    .map(s=>({ name:s, n:bySetter[s] }))
+    .sort((a,b)=>b.n-a.n);
 
   // Calls Booked
   const happened = leadsRaw.filter(r=>{ const d=parseDate(r[L.callScheduledDate]); return d&&inRange(d,wsD,we); });
@@ -384,7 +377,7 @@ function calcWeek(ws) {
 
   return {
     ws, we,
-    uniqueOptins, rawOptins, newOptins90, uniqueEmery, uniqueDeniz,
+    totalOptins, newOptins, setterBreakdown,
     callsBooked: happened.length, callsList, emeryCallsN, challengeCallsN, inboundCallsN,
     newContracts: newContractsNet, contractsList,
     renewalOpp: renewalOpp.length, renewalOppList,
@@ -395,7 +388,7 @@ function calcWeek(ws) {
 // ─── CATEGORY ─────────────────────────────────────────────────────────────────
 function cat(key, val) {
   const t = {
-    uniqueOptins: { r:550, a:700 },
+    totalOptins:  { r:550, a:700 },
     callsBooked:  { r:10,  a:15  },
     newContracts: { r:3,   a:5   },
   }[key];
@@ -409,12 +402,11 @@ function badgeLabel(c) { return {green:'On Track',red:'Red',gold:'Amazing',neutr
 
 // ─── PANELS ───────────────────────────────────────────────────────────────────
 const DEFS = {
-  uniqueOptins: '<div class="def-lead">People who requested a resource this week and were logged with a setter in the DM Tracking Index. A row only counts if a setter is assigned (col H); rows with no setter are ignored everywhere. Identity = IG Handle if present, else First Name + Last Name.</div>'
+  totalOptins: '<div class="def-lead">People who requested a resource this week, logged with a setter in the DM Tracking Index. A row only counts if a setter is assigned (col H); rows with no setter are ignored everywhere. Identity = IG Handle if present, else First Name + Last Name.</div>'
     + '<span class="def-sub">How each number is calculated</span>'
-    + '<div class="def-row"><strong>Raw Total</strong> — every opt-in logged this week. If one person requests 3 resources, that counts as 3.</div>'
-    + '<div class="def-row"><strong>Unique Opt-ins</strong> — distinct people this week. Those 3 requests from one person count as 1. This is the graded number.</div>'
-    + '<div class="def-row"><strong>New · 90d</strong> — distinct people this week who had no setter opt-in in the 90 days before the week. Seen 2 months ago → not new; last seen 4+ months ago → new again. Counted once. Informational, not graded.</div>'
-    + '<div class="def-row"><strong>Emery / Deniz</strong> — the unique opt-ins split by which setter handled them.</div>',
+    + '<div class="def-row"><strong>Total Opt-ins</strong> — every opt-in logged this week (with setter). Counts repeats and existing leads: if one person opts in 3 times, that\'s 3. This is the graded number.</div>'
+    + '<div class="def-row"><strong>New Opt-ins</strong> — distinct people this week with at least one opt-in tagged "New lead" (col I, Type of lead). If any of a person\'s opt-ins that week is New, they count once — even if their other rows say Existing. Informational, not graded.</div>'
+    + '<div class="def-row"><strong>By setter</strong> — the Total Opt-ins split by the setter who handled each one. Same base as Total (events), so setters sum exactly to Total.</div>',
   callsBooked:  '<strong>Calls Booked</strong> — Total calls booked/set this week (col R, Call Scheduled Date). Leading indicator. Breakdown by setter source.',
   newContracts: '<strong>New Contracts</strong> — New clients who purchased this week (New End Date anchored to Date Purchased in Client Mastersheet).',
   renewalOpp:   '<strong>Renewal Opportunities</strong> — Clients whose program end date (New End Date, col R) falls within this week. These are the clients up for renewal.',
@@ -491,13 +483,11 @@ function openOptinsPanel(e) {
   const w = window._lastW; if(!w) return;
   const panel = document.getElementById('panel-optins');
   document.getElementById('summary-optins').innerHTML = [
-    {n: w.uniqueOptins, l: 'Unique Opt-ins'},
-    {n: w.newOptins90, l: 'New · 90d'},
-    {n: w.rawOptins, l: 'Raw Total'},
-    {n: w.uniqueEmery, l: 'Emery'},
-    {n: w.uniqueDeniz, l: 'Deniz'},
+    {n: w.totalOptins, l: 'Total Opt-ins'},
+    {n: w.newOptins, l: 'New Opt-ins'},
+    ...w.setterBreakdown.map(s=>({n:s.n, l:s.name})),
   ].map(s=>`<div class="sum-stat"><span class="sum-num">${s.n}</span><span class="sum-lbl">${s.l}</span></div>`).join('');
-  document.getElementById('def-optins').innerHTML = `<span class="def-title">Definition</span>${DEFS.uniqueOptins}`;
+  document.getElementById('def-optins').innerHTML = `<span class="def-title">Definition</span>${DEFS.totalOptins}`;
   positionAndShow(panel, e.currentTarget.getBoundingClientRect());
 }
 
@@ -584,7 +574,7 @@ function render(w) {
 
   const cards = [
     {
-      key:'uniqueOptins', label:'Resource Opt-ins', value:w.uniqueOptins,
+      key:'totalOptins', label:'Resource Opt-ins', value:w.totalOptins,
       thresh:'Target ≥ 550',
       onclick:'openOptinsPanel(event)',
       hint:'Click for breakdown'
@@ -643,15 +633,15 @@ function renderHistory() {
     const wIdx = currentIdx - i;
     const w = calcWeek(ws);
     const isCurrent = wIdx === currentIdx;
-    const c_o = cat('uniqueOptins', w.uniqueOptins);
+    const c_o = cat('totalOptins', w.totalOptins);
     const c_c = cat('callsBooked',  w.callsBooked);
     const c_n = cat('newContracts', w.newContracts);
     const retStr = w.renewalOpp > 0 ? `${w.renewed}/${w.renewalOpp}` : '—';
     return `<tr class="${isCurrent?'current-row':''}" onclick="jumpTo(${wIdx})">
       <td>W${wIdx+1}</td>
       <td>${fmtShort(ws)} – ${fmtShort(addDays(ws,6))}</td>
-      <td><span class="hist-pill ${c_o}">${w.uniqueOptins}</span></td>
-      <td><span class="hist-pill neutral">${w.newOptins90}</span></td>
+      <td><span class="hist-pill ${c_o}">${w.totalOptins}</span></td>
+      <td><span class="hist-pill neutral">${w.newOptins}</span></td>
       <td><span class="hist-pill ${c_c}">${w.callsBooked}</span></td>
       <td><span class="hist-pill ${c_n}">${w.newContracts}</span></td>
       <td><span class="hist-pill neutral">${w.renewalOpp}</span></td>
