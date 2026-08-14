@@ -326,20 +326,22 @@ function calcWeek(ws) {
   const dmAllWeek = dmsRaw.filter(r=>{ const d=parseDate(r[D.newLeadTS]); return d&&inWeek(d,ws); });
   const dmWithSetter = dmAllWeek.filter(r=>(r[D.setter]||'').trim()!=='');
 
-  // Total opt-ins: every setter event this week (counts repeats and existing leads).
-  const totalOptins = dmWithSetter.length;
+  // Total opt-ins: distinct people this week (with setter). One person counted once,
+  // even if they requested multiple resources this week.
+  const totalOptins = uniqueDMCount(dmWithSetter);
+  const rawOptins = dmWithSetter.length;
 
   // New opt-ins: distinct people this week with at least one row tagged "New lead" (col I).
   // If any of a person's opt-ins this week is New, they count once — regardless of other rows.
   const newRows = dmWithSetter.filter(r=>(r[D.typeOfLead]||'').trim().toLowerCase()==='new lead');
   const newOptins = uniqueDMCount(newRows);
 
-  // Setter breakdown: raw event count per setter this week, sorted desc.
-  // Same base as Total Opt-ins (events, not people), so setters sum exactly to Total.
+  // Setter breakdown: distinct people per setter this week, sorted desc.
+  // Same base as Total Opt-ins (people, not events), so setters sum exactly to Total.
   const bySetter = {};
-  for (const r of dmWithSetter) { const s=(r[D.setter]||'').trim(); bySetter[s]=(bySetter[s]||0)+1; }
+  for (const r of dmWithSetter) { const s=(r[D.setter]||'').trim(); (bySetter[s]=bySetter[s]||[]).push(r); }
   const setterBreakdown = Object.keys(bySetter)
-    .map(s=>({ name:s, n:bySetter[s] }))
+    .map(s=>({ name:s, n:uniqueDMCount(bySetter[s]) }))
     .sort((a,b)=>b.n-a.n);
 
   // Calls Booked
@@ -377,7 +379,7 @@ function calcWeek(ws) {
 
   return {
     ws, we,
-    totalOptins, newOptins, setterBreakdown,
+    totalOptins, rawOptins, newOptins, setterBreakdown,
     callsBooked: happened.length, callsList, emeryCallsN, challengeCallsN, inboundCallsN,
     newContracts: newContractsNet, contractsList,
     renewalOpp: renewalOpp.length, renewalOppList,
@@ -404,9 +406,9 @@ function badgeLabel(c) { return {green:'On Track',red:'Red',gold:'Amazing',neutr
 const DEFS = {
   totalOptins: '<div class="def-lead">People who requested a resource this week, logged with a setter in the DM Tracking Index. A row only counts if a setter is assigned (col H); rows with no setter are ignored everywhere. Identity = IG Handle if present, else First Name + Last Name.</div>'
     + '<span class="def-sub">How each number is calculated</span>'
-    + '<div class="def-row"><strong>Total Opt-ins</strong> — every opt-in logged this week (with setter). Counts repeats and existing leads: if one person opts in 3 times, that\'s 3. This is the graded number.</div>'
+    + '<div class="def-row"><strong>Total Opt-ins</strong> — distinct people this week. One person counts once even if they requested multiple resources. This is the graded number.</div>'
     + '<div class="def-row"><strong>New Opt-ins</strong> — distinct people this week with at least one opt-in tagged "New lead" (col I, Type of lead). If any of a person\'s opt-ins that week is New, they count once — even if their other rows say Existing. Informational, not graded.</div>'
-    + '<div class="def-row"><strong>By setter</strong> — the Total Opt-ins split by the setter who handled each one. Same base as Total (events), so setters sum exactly to Total.</div>',
+    + '<div class="def-row"><strong>By setter</strong> — the Total Opt-ins split by the setter who handled each person. Same base as Total (distinct people), so setters sum exactly to Total.</div>',
   callsBooked:  '<strong>Calls Booked</strong> — Total calls booked/set this week (col R, Call Scheduled Date). Leading indicator. Breakdown by setter source.',
   newContracts: '<strong>New Contracts</strong> — New clients who purchased this week (New End Date anchored to Date Purchased in Client Mastersheet).',
   renewalOpp:   '<strong>Renewal Opportunities</strong> — Clients whose program end date (New End Date, col R) falls within this week. These are the clients up for renewal.',
@@ -485,6 +487,7 @@ function openOptinsPanel(e) {
   document.getElementById('summary-optins').innerHTML = [
     {n: w.totalOptins, l: 'Total Opt-ins'},
     {n: w.newOptins, l: 'New Opt-ins'},
+    {n: w.rawOptins, l: 'Raw Total'},
     ...w.setterBreakdown.map(s=>({n:s.n, l:s.name})),
   ].map(s=>`<div class="sum-stat"><span class="sum-num">${s.n}</span><span class="sum-lbl">${s.l}</span></div>`).join('');
   document.getElementById('def-optins').innerHTML = `<span class="def-title">Definition</span>${DEFS.totalOptins}`;
